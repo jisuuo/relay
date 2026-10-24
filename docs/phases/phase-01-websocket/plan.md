@@ -83,7 +83,7 @@ WebSocket은 연결과 frame 전달만 제공하므로, 채팅방 단위의 전�
 - [x] 1. 정의: 요구사항과 문제 정의
 - [x] 2. 고민: 원인·해결책 직접 고민, 힌트, 대안 비교 → (필요 시) ADR
 - [x] 3. 설계: 최소 설계와 테스트 시나리오 확정
-- [ ] 4. 구현·검증: 실패하는 테스트 → 구현 → 통과, 예상 vs 실제 비교
+- [x] 4. 구현·검증: 실패하는 테스트 → 구현 → 통과, 예상 vs 실제 비교
 - [ ] 5. 정리: 결과 분석, 회고 기록
 
 > 메모: 메시지 종류(`JOIN`·`LEAVE`·`SEND`)와 필드(`roomId`, `content` 등)를 정한다.
@@ -125,6 +125,12 @@ WebSocket은 연결과 frame 전달만 제공하므로, 채팅방 단위의 전�
 >   7. 모르는 필드 포함(`"sender":"bob"`, `JOIN`의 `content`) → 무시하고 성공
 >   8. 파서 없이 `new SendMessage("A", null)` 직접 생성 → 예외
 > - 확인할 예상 (실행 전): 생성자 검사가 없으면 Jackson이 `null`로 채워 record를 만든다 / 생성자 예외는 Jackson 예외로 감싸진다 / Jackson 3의 모르는 필드 기본 동작.
+>
+> 구현·검증 결과 (2026-10-24, 실제 실행):
+> - 생성자 검사 없는 record: `ClientMessageParserTest` 27개 중 17개 실패 — 시나리오 4(12개)·5(4개)·8(1개) 전부. 필수 필드가 누락·`null`·`""`·공백만이어도 Jackson은 예외 없이 객체를 반환했고, `new SendMessage("A", null)`도 생성됐다 → 예상대로 Jackson은 필수 여부를 모른다.
+> - 같은 실행에서 시나리오 7(모르는 필드)은 `JsonMapper.builder().build()` 기본값만으로 통과 → Jackson 3.1.7 기본값은 무시. 정책을 드러내려고 `FAIL_ON_UNKNOWN_PROPERTIES`를 명시적으로 끄도록 바꿨다.
+> - compact constructor 검사 추가 후: 27개 모두 통과, `./gradlew test` 전체 31개 통과.
+> - 예외 감싸기 (`SendMessage` content 누락으로 확인): `IllegalArgumentException` → Jackson `ValueInstantiationException` → 파서의 `InvalidMessageException`.
 
 ### P1-3 채팅방 및 세션 관리
 - [ ] 1. 정의: 요구사항과 문제 정의

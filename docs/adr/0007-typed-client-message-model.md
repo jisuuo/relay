@@ -60,10 +60,10 @@ Raw WebSocket([ADR-0004](0004-raw-websocket-over-stomp.md))에는 controller·`@
 ## 결과와 트레이드오프
 
 - 서버 기준으로 메시지 계약이 정해지므로, 깨지는 변경(필드 이름·의미 변경)은 새 `type`, `version` 필드, WebSocket subprotocol 중 하나로 다뤄야 한다. 아직 정하지 않는다.
-- 다음은 예상이며 P1-2 구현 단계에서 테스트로 확인한다:
-  - 생성자 검사가 없으면 Jackson은 JSON에 없는 필드를 `null`로 채워 record를 만든다.
-  - 생성자에서 던진 예외는 Jackson 예외로 감싸져 나온다.
-  - Jackson 3에서 모르는 필드에 대한 기본 동작 (무시가 아니면 설정 필요).
+- P1-2 구현 단계에서 테스트로 확인한 것 (2026-10-24, [plan](../phases/phase-01-websocket/plan.md) P1-2):
+  - 생성자 검사가 없으면 필수 필드가 누락·`null`·빈 값이어도 Jackson은 예외 없이 record를 만든다.
+  - 생성자에서 던진 `IllegalArgumentException`은 Jackson `ValueInstantiationException`으로 감싸져 나온다.
+  - Jackson 3.1.7의 모르는 필드 기본 동작은 무시다. 그래도 정책을 코드에 드러내려고 `FAIL_ON_UNKNOWN_PROPERTIES`를 명시적으로 끈다.
 
 ## 재검토 조건
 
