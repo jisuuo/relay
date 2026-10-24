@@ -11,3 +11,4 @@
 | [0005](0005-websocket-ping-pong-heartbeat.md) | 2026-10-24 | 비정상 단절 감지: WebSocket ping/pong heartbeat | Accepted | P1 |
 | [0006](0006-multi-room-per-session.md) | 2026-10-24 | 세션과 방의 관계: 한 세션이 여러 방에 참여 | Accepted | P1 |
 | [0007](0007-typed-client-message-model.md) | 2026-10-24 | 클라이언트 메시지 모델: 타입별 record와 생성자 검증 | Accepted | P1 |
+| [0008](0008-room-registry-global-lock.md) | 2026-10-24 | 방 관리의 동시성: 전체 락 하나로 시작 | Accepted | P1 |
