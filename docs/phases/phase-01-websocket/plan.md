@@ -52,13 +52,27 @@ WebSocket은 연결과 frame 전달만 제공하므로, 채팅방 단위의 전�
 순서대로 진행한다. 각 과제의 "2. 고민"은 사용자가 자신의 답을 낸 뒤에만 체크한다 ([ADR-0003](../../adr/0003-daily-progress-tracking.md)).
 
 ### P1-1 WebSocket 연결과 종료
-- [ ] 1. 정의: 요구사항과 문제 정의
-- [ ] 2. 고민: 원인·해결책 직접 고민, 힌트, 대안 비교 → (필요 시) ADR
-- [ ] 3. 설계: 최소 설계와 테스트 시나리오 확정
-- [ ] 4. 구현·검증: 실패하는 테스트 → 구현 → 통과, 예상 vs 실제 비교
+- [x] 1. 정의: 요구사항과 문제 정의
+- [x] 2. 고민: 원인·해결책 직접 고민, 힌트, 대안 비교 → (필요 시) ADR
+- [x] 3. 설계: 최소 설계와 테스트 시나리오 확정
+- [x] 4. 구현·검증: 실패하는 테스트 → 구현 → 통과, 예상 vs 실제 비교
 - [ ] 5. 정리: 결과 분석, 회고 기록
 
 > 메모: 메시징 방식 선택(Raw vs STOMP)은 Phase 시작 결정으로 ADR-0004에 기록했다. 이 과제의 고민 주제는 "정상 close와 비정상 단절을 서버가 각각 언제, 어떻게 알게 되는가"다.
+> 고민 결과: 연결 시 세션 등록, 종료 시 제거. 비정상 단절은 서버 주도 WebSocket ping/pong으로 감지한다 — [ADR-0005](../../adr/0005-websocket-ping-pong-heartbeat.md).
+> 설계 메모: 세션 저장소는 `ConcurrentHashMap.newKeySet()` — [개념 노트](../../learning/session-store-concurrency.md).
+>
+> 설계 확정:
+> - 구성: `WebSocketHandler` 구현체(연결 시 등록, 종료 시 제거), 세션 저장소, 엔드포인트 `/ws`
+> - 테스트 ① 동시 등록(단위): 출발 신호(`CountDownLatch`)로 N개 스레드가 동시에 add → `size == N`. `HashSet`으로 먼저 실패를 재현한 뒤 교체
+> - 테스트 ② 연결 시 등록(통합): 실제 WebSocket 클라이언트 연결 → 저장소에 세션 1개
+> - 테스트 ③ 정상 종료 시 제거(통합): 클라이언트 close → 저장소에서 제거
+> - heartbeat(ADR-0005)는 비정상 종료와 함께 P1-5에서 다룬다.
+>
+> 구현·검증 결과 (2026-10-24, 실제 실행):
+> - ① `HashSet`: 10회 모두 실패, 확인한 6회는 10000개 중 6611~8546개만 남음(예외 없음) → `ConcurrentHashMap.newKeySet()` 교체 후 10회 모두 통과
+> - ②·③ 구현 전: handshake 404로 실패 → `ChatWebSocketHandler`·`WebSocketConfig` 구현 후 통과
+> - `./gradlew test` 전체 4개 통과
 
 ### P1-2 JSON 메시지 모델
 - [ ] 1. 정의: 요구사항과 문제 정의
@@ -147,5 +161,6 @@ WebSocket은 연결과 frame 전달만 제공하므로, 채팅방 단위의 전�
 ## 관련 ADR / 변경 기록
 
 - [ADR-0004](../../adr/0004-raw-websocket-over-stomp.md) Phase 1 메시징 방식: Raw WebSocket으로 시작 (Accepted)
+- [ADR-0005](../../adr/0005-websocket-ping-pong-heartbeat.md) 비정상 단절 감지: WebSocket ping/pong heartbeat (Accepted)
 - [CHG-001](../../changes/001-move-baseline-perf-to-phase1.md) 기준 성능 측정을 P1 종료 시점으로 이동
 - [CHG-002](../../changes/002-early-minimal-observability.md) 최소 관측 수단을 P0~P1부터 도입
