@@ -1,6 +1,6 @@
 # ADR-0010. 서버 메시지 모델: 타입별 record와 연결 직후 sessionId 알림
 
-- 상태: Proposed
+- 상태: Accepted
 - 날짜: 2026-10-24
 - 관련 Phase: P1 (P1-4, P1-5)
 
