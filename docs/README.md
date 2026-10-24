@@ -10,7 +10,7 @@
 | [`progress.md`](progress.md) | **현재 위치**와 다음 할 일 (항상 덮어씀) | 매 세션 |
 | [`journal/`](journal/) | 일일 로그 `YYYY-MM-DD.md` | 작업한 날 |
 | [`roadmap.md`](roadmap.md) | 전체 학습 로드맵 (변경 시 갱신) | 상시 |
-| [`phases/`](phases/) | Phase별 `plan.md`(시작 시), `review.md`(완료 시), `experiments/`(측정 결과, 필요 시) | Phase 시작·완료 |
+| [`phases/`](phases/) | Phase별 `plan.md`(시작 시), `review.md`(완료 시), `experiments/`(측정 결과, 필요 시), `issues/`(재현한 문제의 발생·원인·해결) | Phase 시작·완료 |
 | [`adr/`](adr/README.md) | 기술적 의사결정 기록 (무엇을, 왜 선택했는가) | 결정 시 |
 | [`changes/`](changes/README.md) | 계획 변경 기록 (계획과 무엇이 달라졌는가) | 변경 시 |
 
