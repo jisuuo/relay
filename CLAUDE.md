@@ -19,7 +19,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 매일 이어서 진행하는 프로젝트다.
 
 - **세션 시작 시:** SessionStart hook(`.claude/hooks/session-brief.sh`)이 `docs/progress.md`와 최신 journal을 컨텍스트에 주입한다. 첫 응답에서는 사용자 메시지 내용과 관계없이 이를 바탕으로(hook 주입이 없으면 직접 읽고) ① 현재 위치(Phase·과제·5단계 중 어디) ② 오늘 할 일 1개 ③ 이어서 고민할 질문을 짧게 브리핑한다.
-- **작업 중:** 해당 Phase `plan.md`의 과제별 5단계 체크리스트(정의 → 고민 → 설계 → 구현·검증 → 정리)를 갱신한다. "2. 고민"은 사용자가 자신의 답을 낸 뒤에만 체크한다.
+- **작업 중:** 해당 Phase `plan.md`의 과제별 5단계 체크리스트(정의 → 고민 → 설계 → 구현·검증 → 정리)를 갱신한다. "1. 정의"는 사용자가 문제 찾기 질문 6개(`docs/learning/problem-finding-questions.md`)로 문제 문장을 직접 적은 뒤에만, "2. 고민"은 사용자가 자신의 답을 낸 뒤에만 체크한다. 두 단계 모두 Claude가 답을 먼저 나열하지 않고 질문을 하나씩 던진다.
 - **세션 종료 시 ("오늘 마무리" 등):** `docs/journal/YYYY-MM-DD.md`(5줄 내외: 한 일 / 배운 것 / 막힌 것·질문 / 다음) 작성, `docs/progress.md` 덮어쓰기, `docs:` 커밋 후 push. "배운 것"은 임의로 채우지 말고 사용자에게 묻거나 사용자 표현을 기록한다.
 
 ## 명령어
