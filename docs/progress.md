@@ -8,7 +8,7 @@
 
 - Phase: P1 최소 실시간 채팅 서버 (진행 중) — [plan](phases/phase-01-websocket/plan.md)
 - 과제: P1-4 같은 방 브로드캐스트와 다른 방 격리
-- 단계: 4. 구현·검증 (3. 설계 확정: [ADR-0009](adr/0009-broadcast-per-session-and-per-room-lock.md), [ADR-0010](adr/0010-typed-server-message-model.md) Proposed)
+- 단계: 5. 정리 (4. 구현·검증 완료: 시나리오 1~8, 전체 테스트 55개 통과)
 - 브랜치: `p1-4-broadcast`
 
 ## 다음 할 일
