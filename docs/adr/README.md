@@ -13,3 +13,4 @@
 | [0007](0007-typed-client-message-model.md) | 2026-10-24 | 클라이언트 메시지 모델: 타입별 record와 생성자 검증 | Accepted | P1 |
 | [0008](0008-room-registry-global-lock.md) | 2026-10-24 | 방 관리의 동시성: 전체 락 하나로 시작 | Accepted | P1 |
 | [0009](0009-broadcast-per-session-and-per-room-lock.md) | 2026-10-24 | 브로드캐스트의 동시성: 세션마다 락 + 방마다 락 | Proposed | P1 |
+| [0010](0010-typed-server-message-model.md) | 2026-10-24 | 서버 메시지 모델: 타입별 record와 연결 직후 sessionId 알림 | Proposed | P1 |
