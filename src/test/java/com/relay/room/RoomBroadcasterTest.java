@@ -3,8 +3,10 @@ package com.relay.room;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -136,6 +138,93 @@ class RoomBroadcasterTest {
 		assertThat(inboxC).as("C").containsExactly("안녕");
 	}
 
+	// 시나리오 2: 멤버 전원(본인 포함)이 받고, 다른 방 멤버는 받지 않는다.
+	@Test
+	void 같은_방_멤버는_본인을_포함해_모두_받고_다른_방은_받지_않는다() throws Exception {
+		List<String> inboxA = Collections.synchronizedList(new ArrayList<>());
+		List<String> inboxC = Collections.synchronizedList(new ArrayList<>());
+		List<String> inboxD = Collections.synchronizedList(new ArrayList<>());
+		WebSocketSession a = recordingSession(inboxA, () -> { });
+		WebSocketSession c = recordingSession(inboxC, () -> { });
+		WebSocketSession d = recordingSession(inboxD, () -> { });
+		registry.join(a, "R");
+		registry.join(c, "R");
+		registry.join(d, "Q");
+
+		assertThat(broadcaster.broadcast(a, "R", new TextMessage("안녕"))).isTrue();
+
+		// 이유: broadcast는 모든 전송을 끝낸 뒤 반환한다. 반환 직후 비어 있으면 "받지 않았다"로 확정할 수 있다.
+		assertThat(inboxA).as("A(본인)").containsExactly("안녕");
+		assertThat(inboxC).as("C").containsExactly("안녕");
+		assertThat(inboxD).as("다른 방 Q의 D").isEmpty();
+	}
+
+	// 시나리오 2: 방 멤버가 아니면 아무에게도 보내지 않고 false.
+	@Test
+	void 방_멤버가_아닌_세션이_보내면_아무도_받지_않고_false() throws Exception {
+		List<String> inboxA = Collections.synchronizedList(new ArrayList<>());
+		List<String> inboxD = Collections.synchronizedList(new ArrayList<>());
+		WebSocketSession a = recordingSession(inboxA, () -> { });
+		WebSocketSession d = recordingSession(inboxD, () -> { });
+		registry.join(a, "R");
+		registry.join(d, "Q");
+
+		assertThat(broadcaster.broadcast(d, "R", new TextMessage("끼어들기"))).isFalse();
+		assertThat(broadcaster.broadcast(d, "없는방", new TextMessage("끼어들기"))).isFalse();
+
+		assertThat(inboxA).isEmpty();
+		assertThat(inboxD).isEmpty();
+	}
+
+	// 시나리오 2: 한 멤버에게 전송이 실패해도 나머지 멤버는 받는다.
+	@Test
+	void 한_멤버에게_전송이_실패해도_나머지는_받는다() throws Exception {
+		List<String> inboxA = Collections.synchronizedList(new ArrayList<>());
+		List<String> inboxC = Collections.synchronizedList(new ArrayList<>());
+		WebSocketSession a = recordingSession(inboxA, () -> { });
+		WebSocketSession c = recordingSession(inboxC, () -> { });
+		// 이유: 끊긴 연결처럼 sendMessage가 IOException을 던지는 세션. 복사본의 순회 순서는 정해져 있지 않으므로
+		// 실패 세션이 앞에 오든 뒤에 오든 나머지가 받아야 한다.
+		WebSocketSession broken = mock(WebSocketSession.class);
+		doThrow(new IOException("연결 끊김")).when(broken).sendMessage(any());
+		registry.join(a, "R");
+		registry.join(broken, "R");
+		registry.join(c, "R");
+
+		assertThat(broadcaster.broadcast(a, "R", new TextMessage("안녕"))).isTrue();
+
+		assertThat(inboxA).containsExactly("안녕");
+		assertThat(inboxC).containsExactly("안녕");
+		// 전송 실패만으로 방에서 빼지 않는다. 정리는 afterConnectionClosed에서만 한다 (ADR-0009).
+		assertThat(registry.roomsSnapshot().get("R")).contains(broken);
+	}
+
+	// 시나리오 5: 같은 이름이면 방이 삭제·재생성돼도 같은 락이다.
+	@Test
+	void 같은_방_이름은_방이_삭제되고_다시_생겨도_같은_락을_쓴다() throws Exception {
+		WebSocketSession a = recordingSession(new ArrayList<>(), () -> { });
+		Object before = broadcaster.lockFor("R");
+
+		registry.join(a, "R");
+		registry.leave(a, "R");   // 마지막 1명이 나가 방 R 삭제
+		assertThat(registry.roomsSnapshot()).doesNotContainKey("R");
+		registry.join(a, "R");    // 같은 이름의 새 방 R
+
+		assertThat(broadcaster.lockFor("R")).isSameAs(before);
+	}
+
+	// 시나리오 5: hashCode가 음수여도 배열 범위 안의 칸을 고른다.
+	@Test
+	void 해시값이_음수인_방_이름도_락을_고를_수_있다() {
+		// 이 문자열의 hashCode는 Integer.MIN_VALUE이고 Math.abs(MIN_VALUE)도 음수다.
+		// 주의: 칸 수가 64(2의 거듭제곱)이면 MIN_VALUE % 64 == 0이라 abs(hash) % n 방식도 우연히 통과한다.
+		// 즉 이 테스트는 지금 칸 수에서는 floorMod와 abs 방식을 구분하지 못한다 (하단 변경 이력 변이 3).
+		// floorMod를 쓰는 이유는 칸 수를 P1-7에서 바꿔도(예: 100) 음수 인덱스가 나오지 않게 하기 위해서다.
+		assertThat("polygenelubricants".hashCode()).isEqualTo(Integer.MIN_VALUE);
+		assertThat(broadcaster.lockFor("polygenelubricants")).isNotNull();
+		assertThat(broadcaster.lockFor("-negative-")).isNotNull();
+	}
+
 	// sendMessage가 불리면 내용을 기록하고 hook을 실행하는 가짜 세션.
 	private static WebSocketSession recordingSession(List<String> inbox, Runnable hook) throws Exception {
 		WebSocketSession session = mock(WebSocketSession.class);
@@ -168,4 +257,12 @@ class RoomBroadcasterTest {
  *   - 복사 + 방 락: 5회 모두 둘 다 통과
  *   - 판단: 테스트를 바꾸지 않고 구현만 바꿨을 때 각 단계가 막는 문제가 하나씩 통과로 바뀌었다. 시나리오 3의 통과는
  *     "이 조건에서 앞지르기를 찾지 못했다"는 뜻이고, 근거는 방 락 범위에 대한 추론이다.
+ *
+ * [v2] 시나리오 2(멤버 전원·본인 수신, 다른 방 격리, 비멤버 false, 한 명 실패해도 나머지 수신)·5(같은 이름 같은 락, 음수 해시) (2026-10-24)
+ *   - 구현이 이미 있어 처음 실행에서 7개 모두 통과. 테스트가 잘못된 구현을 잡는지 구현을 일부러 바꿔 확인(변이, 확인 후 원복):
+ *     변이 1 SessionSender가 실패를 다시 던짐 → "한 멤버 실패" 테스트 실패 (잡음)
+ *     변이 2 membersFor가 멤버 확인 안 함 → "비멤버 false" 테스트 실패 (잡음)
+ *     변이 3 floorMod 대신 Math.abs(hash) % n → 실패 없음 (못 잡음). MIN_VALUE % 64 == 0이라 64칸에서는 우연히 맞음.
+ *            처음 주석의 "음수 인덱스가 된다"는 설명이 64칸에서는 틀렸음 → 주석 정정
+ *     변이 4 락을 매번 새로 만듦 → 시나리오 3(순서)과 "같은 락" 테스트 실패 (잡음)
  */
