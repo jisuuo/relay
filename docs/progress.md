@@ -8,19 +8,18 @@
 
 - Phase: P1 최소 실시간 채팅 서버 (진행 중) — [plan](phases/phase-01-websocket/plan.md)
 - 과제: P1-4 같은 방 브로드캐스트와 다른 방 격리
-- 단계: 3. 설계 (2. 고민 완료: [ADR-0009](adr/0009-broadcast-per-session-and-per-room-lock.md) Proposed)
+- 단계: 4. 구현·검증 (3. 설계 확정: [ADR-0009](adr/0009-broadcast-per-session-and-per-room-lock.md), [ADR-0010](adr/0010-typed-server-message-model.md) Proposed)
 - 브랜치: `p1-4-broadcast`
 
 ## 다음 할 일
 
-- [ ] P1-4 설계: 방 락 객체를 무엇으로 할지(방 삭제·재생성 시 같은 객체 문제), 락 순서, 전송 메서드 위치
-- [ ] 문제 ②(동시 전송)·④(순서)·B 케이스를 재현할 테스트 시나리오와 타이밍 제어 방법
+- [ ] 시나리오 1: 방어 없는 `sendMessage` 동시 호출을 실제 연결로 재현 (서버 예외·수신 개수·JSON 형식·중복 기록)
+- [ ] 시나리오 3·4: 방 락 없는 / 원본 순회 구현으로 실패 먼저 재현 → 구현 → 통과
 
 ## 열린 질문 / 막힌 점
 
 - 전송 실패가 Tomcat/Spring에서 연결 종료로 이어져 `afterConnectionClosed`가 자동 호출되는가? (P1-4 재현 때 확인)
 - 느린 소비자: 방마다 락은 느린 F 앞에서 Tomcat 스레드를 묶는다 → P1-8에서 재현, 후보 Decorator (ADR-0009)
-- 서버 → 클라이언트 메시지 모델도 ADR-0007과 같은 방식으로 할까? (P1-4)
 - 판별된 잘못된 메시지에 어떻게 대응할까(에러 응답 형식, 연결 유지 여부), 비정상 단절 감지(ping/pong 주기·타임아웃)와 테스트 방법 (P1-5, ADR-0005)
 - 전체 락 대기가 실제 서버에서 병목인가? → P1-7 k6 측정에서 확인 (ADR-0008 재검토 조건)
 
