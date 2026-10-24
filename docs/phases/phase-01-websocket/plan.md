@@ -328,6 +328,13 @@ WebSocket은 연결과 frame 전달만 제공하므로, 채팅방 단위의 전�
 >   7. (관찰) 연결을 끊은 뒤 전송 → 실패가 `afterConnectionClosed` 호출로 이어지는가.
 >   8. (측정, EXP-02) 열쇠 획득 비용: 해시 칸 vs 방 객체 + 재확인.
 > - 확인할 예상 (실행 전): 1은 섞임 또는 예외 중 무엇이 나올지 모름. 3·4는 방어 없는 구현에서 실패. 7은 모름.
+>
+> 구현·검증 진행 (2026-10-24, 실제 실행):
+> - 시나리오 1 (`SessionSendConcurrencyTest`, 스레드 8개 × 200번 = 1,600번, 메시지 약 1KB):
+>   - 방어 없음(세션에 직접 `sendMessage`): 5회 모두 실패. 서버 예외 1,475~1,564번, 클라이언트 수신 59~125개(예외 + 수신 = 1,600). 형식 깨짐 0, 중복 0, 서버 세션은 계속 open. 예외는 모두 `IllegalStateException: The remote endpoint was in state [TEXT_PARTIAL_WRITING] which is an invalid state for called method`.
+>   - **예상과 다름:** 섞이지 않았다. Tomcat이 "쓰는 중" 상태에서 다른 스레드의 쓰기를 예외로 거절한다 → 실제 증상은 섞임이 아니라 **유실**.
+>   - 질문 3 결정의 증거 (내 답): "전송 실패만 보고 세션을 빼지 않는다, 살아있는 세션을 뺄 뻔했다" — 1,500번 넘게 실패하는 동안 연결은 살아 있었다.
+>   - `SessionSender`(`synchronized (session)`, 실패 시 `false`) 적용 후: 5회 모두 통과(실패 0, 1,600개 모두 수신). 전체 테스트 44개 통과.
 
 ### P1-5 잘못된 입력과 비정상 종료 처리
 - [ ] 1. 정의: 요구사항 정리, [문제 찾기 질문 6개](../../learning/problem-finding-questions.md)로 내가 문제 문장 작성
