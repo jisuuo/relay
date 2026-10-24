@@ -59,14 +59,15 @@ class SessionSendConcurrencyTest {
 	int port;
 
 	// 서버 쪽 세션 하나에 메시지 하나를 보내는 방법. 방어 없는 구현과 SessionSender를 같은 테스트로 비교하려고 분리한다.
+	// false는 예외 없이 실패를 알린 경우다 (SessionSender는 예외를 던지지 않고 false를 돌려준다).
 	@FunctionalInterface
 	interface Sender {
-		void send(WebSocketSession session, TextMessage message) throws IOException;
+		boolean send(WebSocketSession session, TextMessage message) throws IOException;
 	}
 
 	@Test
 	void 같은_세션에_여러_스레드가_동시에_보내도_클라이언트는_모든_메시지를_온전히_받는다() throws Exception {
-		Result result = sendConcurrently(WebSocketSession::sendMessage);
+		Result result = sendConcurrently(new SessionSender()::send);
 
 		assertThat(result.isClean()).as(result.toString()).isTrue();
 	}
@@ -101,7 +102,9 @@ class SessionSendConcurrencyTest {
 					for (int i = 0; i < PER_THREAD; i++) {
 						int n = base + i;
 						try {
-							sender.send(server, new TextMessage("{\"n\":" + n + ",\"pad\":\"" + PAD + "\"}"));
+							if (!sender.send(server, new TextMessage("{\"n\":" + n + ",\"pad\":\"" + PAD + "\"}"))) {
+								exceptions.add("send=false");
+							}
 						}
 						catch (Exception e) {
 							// 이유: 예외로 루프를 끝내면 이후 메시지는 시도조차 안 된다. 모든 시도의 결과를 기록하려고 삼키고 계속한다.
@@ -217,4 +220,11 @@ class SessionSendConcurrencyTest {
  *           which is an invalid state for called method"
  *   - 예상과 다른 점: 섞이지 않았다. Tomcat이 "쓰는 중" 상태를 보고 다른 스레드의 쓰기를 예외로 거절한다.
  *           증상은 섞임이 아니라 거절된 메시지의 유실이고, 보낸 스레드는 예외를 받는다.
+ *   - 당시 Sender는 void였고 테스트는 WebSocketSession::sendMessage를 직접 넘겼다.
+ *
+ * [시도 2] SessionSender: synchronized (session) + 전송 메서드 하나 (2026-10-24)
+ *   - 이유: 같은 세션에는 한 번에 한 스레드만 쓰게 한다. SessionSender는 실패를 false로 돌려주므로 Sender가 boolean을 돌려주게 바꾸고
+ *           false도 실패로 센다.
+ *   - 결과: 5회 실행 모두 통과 (서버 실패 0, 1,600개 모두 수신, 형식 깨짐 0, 중복 0, 테스트 1회 1.6~1.8초).
+ *           전체 테스트 44개 통과.
  */
