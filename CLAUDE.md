@@ -14,6 +14,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 새 기술은 재현된 문제가 있고 더 단순한 대안을 검토한 뒤에만 도입한다 (판단 기준표: `docs/roadmap.md`).
 - 실제로 실행하지 않은 테스트·측정 결과를 문서에 기록하지 않는다.
 
+## 일일 진행 관리 (`docs/adr/0003-*.md`)
+
+매일 이어서 진행하는 프로젝트다.
+
+- **세션 시작 시:** 사용자가 요청하지 않아도 `docs/progress.md`와 가장 최근 `docs/journal/*.md`를 읽고 ① 현재 위치(Phase·과제·5단계 중 어디) ② 오늘 할 일 1개 ③ 이어서 고민할 질문을 짧게 브리핑한다.
+- **작업 중:** 해당 Phase `plan.md`의 과제별 5단계 체크리스트(정의 → 고민 → 설계 → 구현·검증 → 정리)를 갱신한다. "2. 고민"은 사용자가 자신의 답을 낸 뒤에만 체크한다.
+- **세션 종료 시 ("오늘 마무리" 등):** `docs/journal/YYYY-MM-DD.md`(5줄 내외: 한 일 / 배운 것 / 막힌 것·질문 / 다음) 작성, `docs/progress.md` 덮어쓰기, `docs:` 커밋 후 push. "배운 것"은 임의로 채우지 말고 사용자에게 묻거나 사용자 표현을 기록한다.
+
 ## 명령어
 
 ```bash
@@ -36,7 +44,7 @@ curl localhost:8080/actuator/health                         # 기동 확인
 
 ## 문서화 규칙 (`docs/adr/0001-*.md`)
 
-- Phase 시작 시 `docs/phases/phase-XX-<slug>/plan.md`를 작성하고 승인 후 구현한다. 완료 시 같은 폴더에 `review.md`를 작성하고 `plan.md` 상태와 `docs/README.md` 진행 현황표를 갱신한다. 측정 결과는 필요할 때만 `experiments/`에 둔다.
+- Phase 시작 시 `docs/phases/phase-XX-<slug>/plan.md`를 작성하고(과제 목록과 과제별 5단계 체크리스트 포함, 템플릿은 ADR-0003) 승인 후 구현한다. 완료 시 같은 폴더에 `review.md`를 작성하고 `plan.md` 상태와 `docs/README.md` 진행 현황표를 갱신한다. 측정 결과는 필요할 때만 `experiments/`에 둔다.
 - 기술·설계 선택(대안 2개 이상 비교, 되돌리기 어려운 결정, 학습 후보 기술의 미도입·대체) → `docs/adr/NNNN-<slug>.md` (번호 4자리, `Proposed` → `Accepted`, 번복 시 새 ADR로 Superseded).
 - 계획 대비 변경(Phase 순서·범위·완료 기준) → `docs/changes/NNN-<slug>.md` + 같은 커밋에서 `docs/roadmap.md` 갱신.
 - 새 ADR·변경 기록은 각 폴더의 `README.md` 색인에도 추가한다. 템플릿은 ADR-0001에 있다.

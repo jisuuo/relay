@@ -6,3 +6,4 @@
 |---|---|---|---|
 | [0001](0001-record-architecture-decisions.md) | 문서화 방식과 ADR 작성 기준 | Accepted | 전체 |
 | [0002](0002-java-and-spring-boot-version.md) | Java·Spring Boot·빌드 스크립트 선택 | Accepted | P0 |
+| [0003](0003-daily-progress-tracking.md) | 일일 진행 관리 방식 | Accepted | 전체 |
