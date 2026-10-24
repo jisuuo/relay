@@ -59,6 +59,7 @@ P1-4 정의 단계에서 브로드캐스트의 불변식을 정했다 ([plan](..
 - P1-8에서 C(Decorator)를 쓰더라도 D는 버리지 않는다. Decorator는 세션 하나의 섞임과 느린 소비자만 다루고 멤버 사이의 순서는 보장하지 않는다. D 위에 얹으면 방 락 안에서는 각 세션 버퍼에 넣기만 해서 락을 짧게 잡는다.
 - 문제 ②·④의 실제 증상(섞임 / 예외 / 순서 뒤바뀜)은 구현·검증 단계에서 방어 없는 구현으로 먼저 재현해 확인한다. 재현되지 않으면 이 ADR을 다시 본다.
 - 문제 ② 재현 결과 (2026-10-24, `SessionSendConcurrencyTest`): 섞임이 아니라 Tomcat의 `IllegalStateException`(`TEXT_PARTIAL_WRITING`)으로 동시 쓰기가 거절되어 1,600번 중 1,475~1,564번이 유실됐다 (5회). 그동안 세션은 계속 open이었다 → "전송 실패만 보고 정리하지 않는다" 규칙의 근거가 실제로 확인됨. B 적용 후 5회 모두 유실 0.
+- 끊김 관찰 (2026-10-24, `AbnormalCloseObservationTest`): close frame 없이 FIN·RST로 끊으면 서버 읽기 쪽이 바로 알아차려 `afterConnectionClosed`(1006)를 호출했다. 이후 전송은 `false`. 전송 실패가 종료를 일으키는 경우는 관찰되지 않았다 → "정리는 `afterConnectionClosed` 한 경로" 규칙과 맞는다. FIN·RST가 오지 않는 끊김은 관찰하지 못했다(P1-5).
 
 ## 재검토 조건
 

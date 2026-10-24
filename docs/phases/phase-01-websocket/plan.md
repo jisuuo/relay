@@ -350,6 +350,11 @@ WebSocket은 연결과 frame 전달만 제공하므로, 채팅방 단위의 전�
 > - 시나리오 2·5 (`RoomBroadcasterTest` 5개 추가): 구현이 이미 있어 처음 실행에서 모두 통과 → 테스트가 잘못된 구현을 잡는지 구현을 일부러 바꿔 확인(변이 4개, 확인 후 원복). 3개는 잡았고, **변이 3(`floorMod` 대신 `Math.abs(hash) % n`)은 못 잡았다**: `Integer.MIN_VALUE % 64 == 0`이라 64칸에서는 `abs` 방식도 우연히 맞는다. 처음 테스트 주석의 "음수 인덱스가 된다"는 설명이 틀려 정정. `floorMod`는 칸 수를 바꿔도 안전하게 하려는 선택으로 유지. 전체 테스트 51개 통과.
 > - 시나리오 6 (`ChatBroadcastWebSocketTest`, 실제 클라이언트 3개): 구현 전 두 테스트 모두 실패("받은 메시지=[]", 서버 → 클라이언트 전송이 없음) → `ServerMessage`(`CONNECTED`·`MESSAGE`)·`ServerMessageWriter` 추가, 핸들러에서 연결 직후 `CONNECTED`, `SEND` → `RoomBroadcaster` 연결 후 5회 모두 통과. 중간에 테스트 쪽 실수(B의 확인용 `MESSAGE`를 A의 메시지로 집음)를 고침.
 >   - 다른 방 격리를 실제 연결에서 확정하는 방법: A가 R에 보낸 뒤 Q에 "울타리" 메시지를 보낸다. 같은 연결의 메시지는 서버가 차례로 처리하므로, C가 "울타리"를 받은 시점에 "안녕"이 없으면 받지 않은 것으로 확정. 일부러 모든 방에 보내게 바꾸자 이 검사가 실패함을 확인(원복). 전체 테스트 53개 통과.
+> - 시나리오 7 (관찰, `AbnormalCloseObservationTest`, 소켓으로 직접 handshake 후 close frame 없이 끊음, 3회 동일):
+>   - FIN: `afterConnectionClosed` 호출, 1006, 0ms 안에 알아차림 / RST: 호출, 1006 "Connection reset", 2~3ms
+>   - 이후 전송: `SessionSender` → `false` (Tomcat `IllegalStateException` "session ... has been closed"), `isOpen=false`
+>   - 해석: 끊김은 전송이 아니라 **서버의 읽기 쪽**이 FIN·RST를 받고 알아차렸다. "전송 실패가 종료를 일으키는" 경우는 관찰되지 않았다(시나리오 1에서도 실패 중 연결 유지).
+>   - 한계: FIN·RST가 도착하지 않는 끊김(네트워크 단절, NAT 타임아웃)은 localhost에서 만들 수 없어 관찰 못 함 → P1-5 heartbeat. 전체 테스트 55개 통과.
 
 ### P1-5 잘못된 입력과 비정상 종료 처리
 - [ ] 1. 정의: 요구사항 정리, [문제 찾기 질문 6개](../../learning/problem-finding-questions.md)로 내가 문제 문장 작성
