@@ -6,10 +6,14 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
+import com.relay.message.ChatMessage;
 import com.relay.message.ClientMessageParser;
+import com.relay.message.ConnectedMessage;
 import com.relay.message.JoinMessage;
 import com.relay.message.LeaveMessage;
 import com.relay.message.SendMessage;
+import com.relay.message.ServerMessageWriter;
+import com.relay.room.RoomBroadcaster;
 import com.relay.room.RoomRegistry;
 
 /**
@@ -27,17 +31,28 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 	private final SessionRegistry registry;
 	private final ClientMessageParser parser;
 	private final RoomRegistry rooms;
+	private final RoomBroadcaster broadcaster;
+	private final SessionSender sender;
+	private final ServerMessageWriter writer;
 
-	public ChatWebSocketHandler(SessionRegistry registry, ClientMessageParser parser, RoomRegistry rooms) {
+	public ChatWebSocketHandler(SessionRegistry registry, ClientMessageParser parser, RoomRegistry rooms,
+			RoomBroadcaster broadcaster, SessionSender sender, ServerMessageWriter writer) {
 		this.registry = registry;
 		this.parser = parser;
 		this.rooms = rooms;
+		this.broadcaster = broadcaster;
+		this.sender = sender;
+		this.writer = writer;
 	}
 
 	// 이유: 서버가 세션 객체를 받는 유일한 시점이다. 여기서 보관하지 않으면 이후 이 사용자에게 보낼 방법이 없다.
+	// 클라이언트가 자기 메시지를 구분할 수 있게 sessionId를 첫 메시지로 알려 준다 (ADR-0010).
+	// Spring은 이 메서드가 끝난 뒤 이 세션의 메시지를 처리하고, 브로드캐스트를 받으려면 먼저 JOIN해야 하므로 CONNECTED가 항상 첫 메시지다.
+	// 직접 sendMessage를 부르지 않고 SessionSender를 거친다: 모든 전송이 세션 락을 지나야 동시 쓰기 유실이 없다 (ADR-0009).
 	@Override
 	public void afterConnectionEstablished(WebSocketSession session) {
 		registry.add(session);
+		sender.send(session, new TextMessage(writer.write(new ConnectedMessage(session.getId()))));
 	}
 
 	// 이유: 핸들러는 입출력만 맡는다. 문자열 → 메시지 변환은 파서(P1-2), 방 상태 변경은 RoomRegistry가 한다.
@@ -48,8 +63,10 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 		switch (parser.parse(message.getPayload())) {
 			case JoinMessage join -> rooms.join(session, join.roomId());
 			case LeaveMessage leave -> rooms.leave(session, leave.roomId());
-			// 같은 방 브로드캐스트는 P1-4에서 구현한다.
-			case SendMessage send -> { }
+			// 이유: 받는 사람마다 달라지는 필드가 없어 JSON 변환은 브로드캐스트당 한 번만 하고 같은 TextMessage를 전원에게 보낸다.
+			// 비멤버면 broadcast가 false를 돌려주고 아무도 받지 않는다. 클라이언트에 알리는 방법은 P1-5에서 정한다.
+			case SendMessage send -> broadcaster.broadcast(session, send.roomId(),
+					new TextMessage(writer.write(new ChatMessage(send.roomId(), session.getId(), send.content()))));
 		}
 	}
 
@@ -63,3 +80,11 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 	}
 
 }
+
+/*
+ * ── 변경 이력 ──────────────────────────────────────────────
+ *
+ * [P1-4] 연결 직후 CONNECTED 전송, SEND → RoomBroadcaster (2026-10-24)
+ *   - 연결 전: ChatBroadcastWebSocketTest 두 테스트 모두 "받은 메시지=[]"로 실패 (서버 → 클라이언트 전송이 한 곳도 없었음)
+ *   - 연결 후: 5회 모두 통과 (테스트 쪽 메시지 선택 실수를 고친 뒤). 전체 테스트 53개 통과
+ */
