@@ -53,3 +53,4 @@ curl localhost:8080/actuator/health                         # 기동 확인
 ## 저장소
 
 - 원격: https://github.com/jisuuo/relay (public). 기본 브랜치 `main`.
+- 브랜치: 과제(예: P1-4)마다 `main`에서 `pX-Y-<slug>` 브랜치를 만들고, 그 과제의 작업은 모두 그 브랜치에 작업 단위별 커밋으로 쌓는다(코드·문서 커밋 분리 규칙 유지). 세션 종료 시 그 브랜치를 push한다. `main` 병합은 사용자 확인 후에 한다.
