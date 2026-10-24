@@ -73,6 +73,19 @@ public class RoomRegistry {
 		}
 	}
 
+	// 브로드캐스트 대상. from이 방의 멤버가 아니면(방이 없어도) 빈 집합.
+	// 멤버 확인과 복사를 같은 락 안에서 한다: 락 밖에서 확인하면 확인과 복사 사이에 LEAVE·삭제가 끼어든다.
+	// 원본이 아니라 복사본을 준다: 전송은 락 밖에서 하므로 원본을 주면 순회 중 JOIN·LEAVE가 같은 HashSet을 바꿔
+	// ConcurrentModificationException이 나거나, 복사 후 들어온 세션까지 받는다 (RoomBroadcaster 변경 이력 시도 1).
+	// 복사한 순간이 이 SEND의 처리 시점이 된다 (불변식 ①, docs/learning/broadcast-snapshot.md).
+	public synchronized Set<WebSocketSession> membersFor(WebSocketSession from, String roomId) {
+		Set<WebSocketSession> members = rooms.get(roomId);
+		if (members == null || !members.contains(from)) {
+			return Set.of();
+		}
+		return Set.copyOf(members);
+	}
+
 	// 테스트가 불변식을 검사하려고 두 매핑을 들여다보는 용도. 내부 상태가 바깥에서 바뀌지 않도록 복사본을 준다.
 	synchronized Map<String, Set<WebSocketSession>> roomsSnapshot() {
 		Map<String, Set<WebSocketSession>> copy = new HashMap<>();
@@ -102,4 +115,8 @@ public class RoomRegistry {
  * [시도 2] synchronized로 전체 락 하나 (2026-10-24)
  *   - 이유: 방 찾기부터 두 매핑 갱신까지를 한 번에 실행해 틈을 없앤다. 방마다 락은 방 찾기가 락 밖에 남아 같은 문제가 생긴다 (ADR-0008)
  *   - 결과: 같은 테스트 5회 실행 모두 통과 (RoomRegistryConcurrencyTest 2개, RoomRegistryTest 7개)
+ *
+ * [P1-4] membersFor 추가 (2026-10-24)
+ *   - 처음엔 원본 집합을 그대로 돌려줌 → RoomBroadcasterTest 시나리오 4가 5회 모두 ConcurrentModificationException으로 실패
+ *   - Set.copyOf로 복사본을 돌려주게 바꾼 뒤 시나리오 4가 5회 모두 통과 (RoomBroadcaster 변경 이력 시도 1·2)
  */
