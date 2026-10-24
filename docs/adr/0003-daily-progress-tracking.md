@@ -83,6 +83,14 @@ C를 채택하고 다음 세 장치를 둔다.
 - 세션 종료 시 기록 비용이 생긴다. journal을 5줄 내외로 제한해 부담을 줄인다.
 - journal의 "배운 것"은 사용자의 학습 내용이므로 Claude가 임의로 채우지 않고 사용자 표현을 기록한다.
 
+## 보완 (2026-10-24): SessionStart hook 도입
+
+사용자 요청("시작하면 알아서 다음 단계를 가져오면 좋겠다")으로 CLAUDE.md 규칙만으로는 부족함이 확인되어 hook을 추가한다. 결정의 방향은 같고 실행 수단만 보강하는 것이므로 새 ADR 대신 이 절에 기록한다.
+
+- `.claude/settings.json`의 SessionStart hook(`startup|resume|clear`)이 `.claude/hooks/session-brief.sh`를 실행한다.
+- 스크립트는 `progress.md`의 "현재 위치", "다음 할 일" 섹션을 사용자 화면에 표시하고(`systemMessage`), `progress.md` 전체와 최신 journal을 Claude 컨텍스트에 주입한다(`additionalContext`).
+- 한계: Claude는 사용자 메시지 없이 먼저 말할 수 없다. 화면 표시는 즉시 되지만, Claude의 상세 브리핑(다음 단계 구체화)은 사용자의 첫 메시지(예: "시작") 이후에 나온다.
+
 ## 재검토 조건
 
 - `progress.md`가 한 화면을 넘어 비대해질 때
