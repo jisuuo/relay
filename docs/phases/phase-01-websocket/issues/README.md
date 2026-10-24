@@ -6,3 +6,4 @@
 |---|---|---|
 | [ISSUE-01](01-session-loss-on-concurrent-register.md) | P1-1 | 동시 접속 시 세션이 예외 없이 사라짐 (`HashSet`) |
 | [ISSUE-02](02-jackson-creates-message-without-required-fields.md) | P1-2 | 필수 필드가 비어 있어도 메시지 객체가 만들어짐 (Jackson) |
+| [ISSUE-03](03-join-into-deleted-room.md) | P1-3 | 빈 방 삭제와 `JOIN`이 겹치면 삭제된 방에 들어감 (예외 없음) |
