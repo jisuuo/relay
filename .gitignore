@@ -43,3 +43,7 @@ out/
 .env
 *.env
 !.env.example
+
+### 개인 문서 (커밋하지 않음) ###
+docs/portfolio/keywords.md
+이력서_예시.jpeg
