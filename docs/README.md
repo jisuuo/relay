@@ -18,7 +18,7 @@ ADR과 변경 기록의 구분 기준은 [ADR-0001](adr/0001-record-architecture
 
 | Phase | 상태 | 계획 | 회고 |
 |---|---|---|---|
-| P0 프로젝트 기반 구성 | 진행 중 | [plan](phases/phase-00-foundation/plan.md) | — |
+| P0 프로젝트 기반 구성 | 완료 | [plan](phases/phase-00-foundation/plan.md) | [review](phases/phase-00-foundation/review.md) |
 | P1 최소 실시간 채팅 서버 | 대기 | — | — |
 | P2 MySQL과 메시지 영속화 | 대기 | — | — |
 | P3 트랜잭션과 동시성 | 대기 | — | — |
