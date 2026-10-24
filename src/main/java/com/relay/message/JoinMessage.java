@@ -8,7 +8,7 @@ package com.relay.message;
 public record JoinMessage(String roomId) implements ClientMessage {
 
 	// 이유: 검사를 파서가 아니라 생성자에 둔다. 파서를 거치지 않는 경로(테스트, P2 DB 복원,
-	// P6 Kafka 역직렬화 등)로 만들어도 잘못된 객체가 생기지 않는다. 객체가 존재하면 유효하다 (ADR-0007).
+	// P4 Kafka 역직렬화 등)로 만들어도 잘못된 객체가 생기지 않는다. 객체가 존재하면 유효하다 (ADR-0007).
 	public JoinMessage {
 		Fields.requireText(roomId, "roomId");
 	}
