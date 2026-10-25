@@ -14,7 +14,11 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
 @JsonSubTypes({
 		@JsonSubTypes.Type(value = ConnectedMessage.class, name = "CONNECTED"),
-		@JsonSubTypes.Type(value = ChatMessage.class, name = "MESSAGE")
+		@JsonSubTypes.Type(value = ChatMessage.class, name = "MESSAGE"),
+		// 이유: 오류는 종류가 달라도 type을 ERROR 하나로 쓰고 code로 나눈다 (ADR-0011). 서버는 쓰기만 하므로
+		// 같은 이름이 두 클래스에 붙어도 문제없다 (이름 → 클래스 방향의 읽기는 하지 않는다).
+		@JsonSubTypes.Type(value = NotMemberError.class, name = "ERROR"),
+		@JsonSubTypes.Type(value = InvalidMessageError.class, name = "ERROR")
 })
-public sealed interface ServerMessage permits ConnectedMessage, ChatMessage {
+public sealed interface ServerMessage permits ConnectedMessage, ChatMessage, NotMemberError, InvalidMessageError {
 }

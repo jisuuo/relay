@@ -7,11 +7,17 @@ import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import com.relay.message.ChatMessage;
+import com.relay.message.ClientMessage;
 import com.relay.message.ClientMessageParser;
 import com.relay.message.ConnectedMessage;
+import com.relay.message.InvalidMessageError;
+import com.relay.message.InvalidMessageException;
 import com.relay.message.JoinMessage;
 import com.relay.message.LeaveMessage;
+import com.relay.message.NotMemberError;
+import com.relay.message.NotMemberError.RequestType;
 import com.relay.message.SendMessage;
+import com.relay.message.ServerMessage;
 import com.relay.message.ServerMessageWriter;
 import com.relay.room.RoomBroadcaster;
 import com.relay.room.RoomRegistry;
@@ -57,17 +63,48 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 
 	// 이유: 핸들러는 입출력만 맡는다. 문자열 → 메시지 변환은 파서(P1-2), 방 상태 변경은 RoomRegistry가 한다.
 	// 보낸 사람은 메시지가 아니라 프레임이 들어온 세션으로 정한다 (ADR-0007).
-	// 파싱 실패(InvalidMessageException)는 여기서 잡지 않는다. 에러 응답·연결 유지 여부는 P1-5에서 정한다.
+	//
+	// 오류 응답은 여기서 보낸다 (ADR-0011): 파서·RoomRegistry·RoomBroadcaster 세 실패가 모두 돌아오는 곳이고, 락 밖이다.
+	// 비멤버 판단은 각자 락 안에서 하고 결과(boolean)만 돌려준다. 판단까지 여기로 옮기면 확인과 행동 사이에 LEAVE·끊김이 끼어든다.
+	// 락 안에서 오류를 보내면, 받는 쪽 버퍼가 찼을 때(실험 3) 전체 락·방 락을 쥔 채 최대 약 20초 멈춘다.
 	@Override
 	protected void handleTextMessage(WebSocketSession session, TextMessage message) {
-		switch (parser.parse(message.getPayload())) {
-			case JoinMessage join -> rooms.join(session, join.roomId());
-			case LeaveMessage leave -> rooms.leave(session, leave.roomId());
-			// 이유: 받는 사람마다 달라지는 필드가 없어 JSON 변환은 브로드캐스트당 한 번만 하고 같은 TextMessage를 전원에게 보낸다.
-			// 비멤버면 broadcast가 false를 돌려주고 아무도 받지 않는다. 클라이언트에 알리는 방법은 P1-5에서 정한다.
-			case SendMessage send -> broadcaster.broadcast(session, send.roomId(),
-					new TextMessage(writer.write(new ChatMessage(send.roomId(), session.getId(), send.content()))));
+		ClientMessage request;
+		try {
+			request = parser.parse(message.getPayload());
 		}
+		// 이유: 클라이언트 잘못(InvalidMessageException)만 잡는다. 실수 한 번에 연결을 끊지 않고 오류만 알린다.
+		// 다른 예외(서버 버그)는 잡지 않아 Spring이 1011로 닫는다 — 1011의 원래 뜻과 맞다 (UnexpectedExceptionWebSocketTest).
+		catch (InvalidMessageException e) {
+			reply(session, new InvalidMessageError(e.getMessage()));
+			return;
+		}
+		switch (request) {
+			case JoinMessage join -> rooms.join(session, join.roomId());
+			case LeaveMessage leave -> {
+				if (!rooms.leave(session, leave.roomId())) {
+					reply(session, notMember(RequestType.LEAVE, leave.roomId()));
+				}
+			}
+			// 이유: 받는 사람마다 달라지는 필드가 없어 JSON 변환은 브로드캐스트당 한 번만 하고 같은 TextMessage를 전원에게 보낸다.
+			// 비멤버면 broadcast가 false를 돌려주고 아무도 받지 않는다.
+			case SendMessage send -> {
+				TextMessage chat = new TextMessage(
+						writer.write(new ChatMessage(send.roomId(), session.getId(), send.content())));
+				if (!broadcaster.broadcast(session, send.roomId(), chat)) {
+					reply(session, notMember(RequestType.SEND, send.roomId()));
+				}
+			}
+		}
+	}
+
+	private static NotMemberError notMember(RequestType requestType, String roomId) {
+		return new NotMemberError(requestType, roomId, "방 " + roomId + "의 멤버가 아니다. 먼저 JOIN해야 한다");
+	}
+
+	// 이유: 오류 응답도 다른 전송과 같은 세션에 겹쳐 쓸 수 있으므로 SessionSender(세션 락)를 거친다 (ADR-0009).
+	private void reply(WebSocketSession session, ServerMessage error) {
+		sender.send(session, new TextMessage(writer.write(error)));
 	}
 
 	// 이유: 끊긴 세션이 남으면 메모리 누수·접속자 수 왜곡·이후 전송 실패가 생긴다.
@@ -87,4 +124,9 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
  * [P1-4] 연결 직후 CONNECTED 전송, SEND → RoomBroadcaster (2026-10-24)
  *   - 연결 전: ChatBroadcastWebSocketTest 두 테스트 모두 "받은 메시지=[]"로 실패 (서버 → 클라이언트 전송이 한 곳도 없었음)
  *   - 연결 후: 5회 모두 통과 (테스트 쪽 메시지 선택 실수를 고친 뒤). 전체 테스트 53개 통과
+ *
+ * [P1-5] 오류 응답: InvalidMessageException → INVALID_MESSAGE, 비멤버 SEND·LEAVE → NOT_MEMBER (2026-10-25)
+ *   - 고치기 전: InvalidInputWebSocketTest 3개 실패. 깨진 JSON → CONNECTED만 받고 1011로 닫힘(open=false),
+ *               비멤버 SEND·LEAVE → CONNECTED만 받고 아무 응답 없음(open=true). 실험 4·5와 같음
+ *   - 고친 후: InvalidInputWebSocketTest 3개 통과, UnexpectedExceptionWebSocketTest(1011 유지) 통과
  */
