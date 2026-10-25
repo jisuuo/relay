@@ -492,6 +492,12 @@ WebSocket은 연결과 frame 전달만 제공하므로, 채팅방 단위의 전�
   5. 비멤버 `LEAVE` → `NOT_MEMBER`, `requestType: LEAVE`
   6. 핸들러에서 예상 못 한 예외 → 지금처럼 1011로 닫힘
   - 순서: 고치기 전에 실패를 먼저 확인한 뒤 구현.
+> - 구현 전 예상 (내 표현, 지금 코드 기준): 1 실패 / 2 통과 / 3 실패 / 4 실패 / 5 실패 / 6 통과
+> - 구현 전 실행 (2026-10-25, 실제 실행): `HeartbeatWebSocketTest`·`InvalidInputWebSocketTest`·`UnexpectedExceptionWebSocketTest` 6개 중 4개 실패 — 예상과 6개 모두 일치.
+  - 1: 3초 뒤에도 `ghost-room`과 유령 세션이 두 매핑에 남음 (실험 1과 같음)
+  - 3: `CONNECTED`만 받고 `open=false` (1011로 닫힘, 실험 4와 같음)
+  - 4·5: `CONNECTED`만 받고 `open=true` (아무 응답 없음, 실험 5와 같음)
+  - 2·6: 통과 — 2는 고친 뒤 살아 있는 연결을 끊지 않는지, 6은 예외 범위를 넓히지 않았는지 지키는 테스트
 > - 설계 확정: [ADR-0011](../../adr/0011-error-response-format.md) (오류 응답), [ADR-0005](../../adr/0005-websocket-ping-pong-heartbeat.md) 후속(heartbeat 값·판정).
 
 ### P1-6 최소 관측 메트릭
