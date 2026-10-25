@@ -468,6 +468,8 @@ WebSocket은 연결과 frame 전달만 제공하므로, 채팅방 단위의 전�
 > - ① 오류 메시지 표현: A 단일 record(없는 칸 null) / B 오류 종류마다 record. 내 답: "타입별 record"
   - 근거(ADR-0007과 같음): 단일 record는 경우마다 null 칸이 달라 조건부 검사가 필요. 타입별 record는 생성자가 자기 필수 필드를 검사.
   - 와이어 형식: 오류마다 `type`을 다르게 하면 옛 클라이언트는 처음 보는 오류를 오류인지도 모른다 → **결정 (내 동의)**: JSON은 `{"type":"ERROR", "code":"NOT_MEMBER" | "INVALID_MESSAGE", ...}`. Java는 타입별 record, 나가는 모양만 `type`=`ERROR` + `code`로 맞춘다. (ADR-0010 확장 → ADR 후보)
+> - ② 핸들러에서 잡을 예외: A `InvalidMessageException`만 / B 모든 예외. 내 답: "A입니다. 서버 버그는 1011이 맞으니까요" → **결정**: 예상한 실패(클라이언트 잘못)만 잡아 `INVALID_MESSAGE`로 응답, 예상 못 한 예외는 지금처럼 Spring이 1011로 닫는다.
+> - ③ heartbeat ping 전송 경로: 내 질문 "락은 모든 호출이 잡을 때만 효과가 있다"가 이해 안 됨 → 화장실 열쇠 비유(`synchronized`는 세션을 막는 게 아니라 같은 락을 거는 코드끼리만 줄 세움). 내 답: "ping도 전송으로 보면 되죠? 응답을 받는 거니깐? 스레드 사용이니깐?" → ping은 세션에 쓰는 전송이 맞음. 기준은 스레드 사용·응답 유무가 아니라 "같은 세션에 쓰는가" 하나(내 확인: 이해함). 다만 이유는 "같은 세션에 쓰기 때문"이고, pong을 받는 것(읽기)은 쓰기 락과 무관. **결정**: ping도 `SessionSender`를 거친다(지금 `TextMessage`만 받으므로 `PingMessage`도 받게 넓힌다).
 
 ### P1-6 최소 관측 메트릭
 - [ ] 1. 정의: 요구사항 정리, [문제 찾기 질문 6개](../../learning/problem-finding-questions.md)로 내가 문제 문장 작성
