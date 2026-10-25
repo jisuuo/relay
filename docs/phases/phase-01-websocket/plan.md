@@ -479,6 +479,11 @@ WebSocket은 연결과 frame 전달만 제공하므로, 채팅방 단위의 전�
     - 지울 곳은 `afterConnectionClosed` 한 곳(정상 종료·FIN·RST·쓰기 시간 초과·1011·heartbeat 종료 모두 여기로 모임).
     - 대안: 세션 보관함 `session.getAttributes()`에 넣으면 세션이 GC될 때 함께 사라져 지울 일이 없다(가방 vs 사물함 비유). 확인: Spring `AbstractWebSocketSession`의 attributes는 `ConcurrentHashMap`(javap) → heartbeat 스레드와 핸들러 스레드가 동시에 써도 안전.
     - **결정 (내 선택)**: B 세션 보관함. "지울 필요가 없으니까요". 대가: `Object` 형변환, 문자열 키.
+  - heartbeat 구성 (제안, 내 동의):
+    - pong 기록: `ChatWebSocketHandler.handlePongMessage` → `attributes["pongAt"]`.
+    - 스케줄러: `Heartbeat` 클래스, Spring `@Scheduled`(새 의존성 없음), 주기마다 `SessionRegistry` 전체를 돈다. ping을 보낸 뒤 pong 없이 타임아웃이 지났으면 `close()` → `afterConnectionClosed`로 정리. 응답 대기 중인 ping이 없을 때만 `SessionSender`로 ping을 보내고 `attributes["pingSentAt"]` 기록(대기 중엔 다시 보내지 않아야 "보낸 뒤 90초"를 셀 수 있음).
+    - 값: `application.yml`의 `relay.heartbeat.interval: 30s`, `relay.heartbeat.timeout: 90s`, 테스트에서 짧게 덮어씀.
+    - 메모: 이 구성에서 90초는 "ping 3번"이 아니라 "ping 1번에 90초 응답 기회"다(일시 끊김 내성은 같음). 유령은 확인 간격 때문에 최대 약 120초 뒤 정리.
 
 ### P1-6 최소 관측 메트릭
 - [ ] 1. 정의: 요구사항 정리, [문제 찾기 질문 6개](../../learning/problem-finding-questions.md)로 내가 문제 문장 작성
