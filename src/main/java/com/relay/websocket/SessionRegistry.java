@@ -1,5 +1,6 @@
 package com.relay.websocket;
 
+import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -34,6 +35,13 @@ public class SessionRegistry {
 
 	public void remove(WebSocketSession session) {
 		sessions.remove(session);
+	}
+
+	// 이유: heartbeat가 모든 세션에 ping을 보내려고 반복한다. 바깥에서 add·remove하지 못하게 읽기 전용으로 돌려준다.
+	// ConcurrentHashMap은 반복 중 다른 스레드가 연결·종료해도 예외 없이 계속 돈다(그 사이 바뀐 세션은 보일 수도, 안 보일 수도 있다).
+	// 이번 주기에 못 본 세션은 다음 주기에 본다.
+	public Set<WebSocketSession> sessions() {
+		return Collections.unmodifiableSet(sessions);
 	}
 
 	public int size() {

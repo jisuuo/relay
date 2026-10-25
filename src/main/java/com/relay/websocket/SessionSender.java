@@ -3,7 +3,8 @@ package com.relay.websocket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-import org.springframework.web.socket.TextMessage;
+import org.springframework.web.socket.CloseStatus;
+import org.springframework.web.socket.WebSocketMessage;
 import org.springframework.web.socket.WebSocketSession;
 
 /**
@@ -27,7 +28,10 @@ public class SessionSender {
 	// 실패해도 예외를 던지지 않고 false만 돌려준다: 브로드캐스트는 한 명이 실패해도 다음 멤버에게 계속 보내야 한다.
 	// 실패만 보고 세션을 정리하지도 않는다. 실패는 연결 종료일 수도, 다른 이유일 수도 있는 애매한 신호다
 	// (시도 1에서 1,500번 넘게 실패하는 동안 세션은 계속 open이었다). 정리는 afterConnectionClosed 한 경로에서만 한다.
-	public boolean send(WebSocketSession session, TextMessage message) {
+	//
+	// 왜 TextMessage가 아니라 WebSocketMessage인가: heartbeat의 ping도 같은 세션에 쓰는 전송이다. ping만 직접 보내면
+	// 채팅 전송과 겹쳐 Tomcat이 거절한다 (P1-5, ADR-0005 후속).
+	public boolean send(WebSocketSession session, WebSocketMessage<?> message) {
 		synchronized (session) {
 			try {
 				session.sendMessage(message);
@@ -36,6 +40,18 @@ public class SessionSender {
 			catch (Exception e) {
 				log.warn("전송 실패 session={}: {}", session.getId(), e.toString());
 				return false;
+			}
+		}
+	}
+
+	// 이유: 닫기도 Close 프레임을 쓰는 전송이라 같은 세션 락을 거친다. 실패해도 할 수 있는 일이 없어 로그만 남긴다.
+	public void close(WebSocketSession session, CloseStatus status) {
+		synchronized (session) {
+			try {
+				session.close(status);
+			}
+			catch (Exception e) {
+				log.warn("닫기 실패 session={}: {}", session.getId(), e.toString());
 			}
 		}
 	}

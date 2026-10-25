@@ -1,3 +1,10 @@
 spring:
   application:
     name: relay
+
+# 이유: 30초마다 ping, ping 뒤 90초 안에 pong이 없으면 닫는다 (ADR-0005 후속).
+# 타임아웃을 주기의 3배로 두어 ping·pong 한 번이 늦거나 사라져도 살아 있는 사용자를 끊지 않는다.
+relay:
+  heartbeat:
+    interval: 30s
+    timeout: 90s

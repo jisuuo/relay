@@ -2,6 +2,7 @@ package com.relay.websocket;
 
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
+import org.springframework.web.socket.PongMessage;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
@@ -40,15 +41,17 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 	private final RoomBroadcaster broadcaster;
 	private final SessionSender sender;
 	private final ServerMessageWriter writer;
+	private final Heartbeat heartbeat;
 
 	public ChatWebSocketHandler(SessionRegistry registry, ClientMessageParser parser, RoomRegistry rooms,
-			RoomBroadcaster broadcaster, SessionSender sender, ServerMessageWriter writer) {
+			RoomBroadcaster broadcaster, SessionSender sender, ServerMessageWriter writer, Heartbeat heartbeat) {
 		this.registry = registry;
 		this.parser = parser;
 		this.rooms = rooms;
 		this.broadcaster = broadcaster;
 		this.sender = sender;
 		this.writer = writer;
+		this.heartbeat = heartbeat;
 	}
 
 	// 이유: 서버가 세션 객체를 받는 유일한 시점이다. 여기서 보관하지 않으면 이후 이 사용자에게 보낼 방법이 없다.
@@ -107,8 +110,16 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 		sender.send(session, new TextMessage(writer.write(error)));
 	}
 
+	// 이유: pong은 클라이언트 라이브러리가 ping에 자동으로 보내는 대답이다. 받았다는 사실만 Heartbeat에 알린다.
+	// TextWebSocketHandler는 pong을 기본으로 무시하므로, 덮어쓰지 않으면 살아 있는 클라이언트도 타임아웃으로 끊긴다.
+	@Override
+	protected void handlePongMessage(WebSocketSession session, PongMessage message) {
+		heartbeat.pongReceived(session);
+	}
+
 	// 이유: 끊긴 세션이 남으면 메모리 누수·접속자 수 왜곡·이후 전송 실패가 생긴다.
-	// 주의: close frame이 오지 않는 비정상 단절에서는 이 메서드가 제때 호출되지 않을 수 있다 → P1-5 heartbeat (ADR-0005).
+	// FIN·RST·Close가 오지 않는 비정상 단절에서는 Spring이 이 메서드를 부르지 않는다(실험 1).
+	// 그 경우는 Heartbeat가 응답 없는 세션을 닫아 이 메서드가 불리게 한다 (ADR-0005 후속).
 	@Override
 	public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
 		registry.remove(session);
