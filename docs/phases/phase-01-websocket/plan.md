@@ -376,7 +376,7 @@ WebSocket은 연결과 frame 전달만 제공하므로, 채팅방 단위의 전�
 ### P1-5 잘못된 입력과 비정상 종료 처리
 - [x] 1. 정의: 요구사항 정리, [문제 찾기 질문 6개](../../learning/problem-finding-questions.md)로 내가 문제 문장 작성
 - [x] 2. 고민: 원인·해결책 직접 고민, 힌트, 대안 비교 → (필요 시) ADR
-- [ ] 3. 설계: 최소 설계와 테스트 시나리오 확정
+- [x] 3. 설계: 최소 설계와 테스트 시나리오 확정
 - [ ] 4. 구현·검증: 실패하는 테스트 → 구현 → 통과, 예상 vs 실제 비교
 - [ ] 5. 정리: 결과 분석, 회고 기록
 
@@ -484,6 +484,15 @@ WebSocket은 연결과 frame 전달만 제공하므로, 채팅방 단위의 전�
     - 스케줄러: `Heartbeat` 클래스, Spring `@Scheduled`(새 의존성 없음), 주기마다 `SessionRegistry` 전체를 돈다. ping을 보낸 뒤 pong 없이 타임아웃이 지났으면 `close()` → `afterConnectionClosed`로 정리. 응답 대기 중인 ping이 없을 때만 `SessionSender`로 ping을 보내고 `attributes["pingSentAt"]` 기록(대기 중엔 다시 보내지 않아야 "보낸 뒤 90초"를 셀 수 있음).
     - 값: `application.yml`의 `relay.heartbeat.interval: 30s`, `relay.heartbeat.timeout: 90s`, 테스트에서 짧게 덮어씀.
     - 메모: 이 구성에서 90초는 "ping 3번"이 아니라 "ping 1번에 90초 응답 기회"다(일시 끊김 내성은 같음). 유령은 확인 간격 때문에 최대 약 120초 뒤 정리.
+> - ④ 테스트 시나리오 (내 확정):
+  1. TCP 직접 연결 클라이언트(ping에 pong 안 함 = 유령)가 `JOIN` 후 침묵, 짧은 주기·타임아웃 → 타임아웃 뒤 `afterConnectionClosed`, 매핑에서 제거 (문장 1, 실험 1)
+  2. 일반 클라이언트(자동 pong)가 침묵, 타임아웃의 몇 배 경과 → 끊기지 않음 (터널·D 반례)
+  3. 깨진 JSON → `{"type":"ERROR","code":"INVALID_MESSAGE"}`, 연결 유지, 이어서 보낸 정상 `SEND` 성공 (문장 2, 실험 4)
+  4. 비멤버 `SEND` → `NOT_MEMBER`, `requestType: SEND`, `roomId`, 다른 방 멤버는 못 받음 (문장 3, 실험 5)
+  5. 비멤버 `LEAVE` → `NOT_MEMBER`, `requestType: LEAVE`
+  6. 핸들러에서 예상 못 한 예외 → 지금처럼 1011로 닫힘
+  - 순서: 고치기 전에 실패를 먼저 확인한 뒤 구현.
+> - 설계 확정: [ADR-0011](../../adr/0011-error-response-format.md) (오류 응답), [ADR-0005](../../adr/0005-websocket-ping-pong-heartbeat.md) 후속(heartbeat 값·판정).
 
 ### P1-6 최소 관측 메트릭
 - [ ] 1. 정의: 요구사항 정리, [문제 찾기 질문 6개](../../learning/problem-finding-questions.md)로 내가 문제 문장 작성

@@ -14,3 +14,4 @@
 | [0008](0008-room-registry-global-lock.md) | 2026-10-24 | 방 관리의 동시성: 전체 락 하나로 시작 | Accepted | P1 |
 | [0009](0009-broadcast-per-session-and-per-room-lock.md) | 2026-10-24 | 브로드캐스트의 동시성: 세션마다 락 + 방마다 락 | Accepted | P1 |
 | [0010](0010-typed-server-message-model.md) | 2026-10-24 | 서버 메시지 모델: 타입별 record와 연결 직후 sessionId 알림 | Accepted | P1 |
+| [0011](0011-error-response-format.md) | 2026-10-25 | 잘못된 입력 대응: 오류 응답 형식과 연결 유지 | Accepted | P1 |
