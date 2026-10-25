@@ -475,6 +475,10 @@ WebSocket은 연결과 frame 전달만 제공하므로, 채팅방 단위의 전�
     - 건너뛰기는 `synchronized`로 불가(확인 없이 무조건 대기) → `ReentrantLock.tryLock`으로 `SessionSender`(모든 전송)를 바꾸고 세션마다 락을 보관해야 함.
     - 대안: 판정 기준 변경 — "마지막 pong 이후 90초"가 아니라 "ping을 보낸 뒤 90초 동안 pong 없음"이면 ping이 늦게 간 D가 억울하게 끊기지 않는다(출석 부르기 비유). `SessionSender`는 그대로. 대가: 막힌 세션이 많으면 유령 판정이 늦어질 수 있음(늦게 찾는 것 < 잘못 끊는 것).
     - **결정 (내 선택)**: 기준 ② "ping을 보낸 뒤 90초 동안 pong이 없으면 끊는다".
+  - 시각 기록 위치: heartbeat 안에 `Map<세션, 시각들>`을 둔다면? 내 답(질문 3): "끊길 때 맵에서 지워야 합니다"
+    - 지울 곳은 `afterConnectionClosed` 한 곳(정상 종료·FIN·RST·쓰기 시간 초과·1011·heartbeat 종료 모두 여기로 모임).
+    - 대안: 세션 보관함 `session.getAttributes()`에 넣으면 세션이 GC될 때 함께 사라져 지울 일이 없다(가방 vs 사물함 비유). 확인: Spring `AbstractWebSocketSession`의 attributes는 `ConcurrentHashMap`(javap) → heartbeat 스레드와 핸들러 스레드가 동시에 써도 안전.
+    - **결정 (내 선택)**: B 세션 보관함. "지울 필요가 없으니까요". 대가: `Object` 형변환, 문자열 키.
 
 ### P1-6 최소 관측 메트릭
 - [ ] 1. 정의: 요구사항 정리, [문제 찾기 질문 6개](../../learning/problem-finding-questions.md)로 내가 문제 문장 작성
