@@ -1,19 +1,18 @@
 # 현재 진행 상황
 
-- 갱신: 2026-10-24
+- 갱신: 2026-10-25
 
 운영 방식은 [ADR-0003](adr/0003-daily-progress-tracking.md)을 따른다.
 
 ## 현재 위치
 
 - Phase: P1 최소 실시간 채팅 서버 (진행 중) — [plan](phases/phase-01-websocket/plan.md)
-- 과제: P1-4 같은 방 브로드캐스트와 다른 방 격리 → 완료 (main 병합 대기)
+- 과제: P1-4 같은 방 브로드캐스트와 다른 방 격리 → 완료 (main 병합 완료)
 - 단계: P1-4 5단계 모두 완료. 다음 과제 P1-5는 시작 전
-- 브랜치: `p1-4-broadcast`
+- 브랜치: `main` (P1-5 시작 시 `p1-5-*` 브랜치 생성)
 
 ## 다음 할 일
 
-- [ ] `p1-4-broadcast`를 `main`에 병합할지 확인 (사용자 확인 후 로컬 병합)
 - [ ] P1-5에 [문제 찾기 질문 6개](learning/problem-finding-questions.md)를 적용해 문제 문장 작성 — 비멤버 `SEND`·잘못된 JSON에 대한 에러 응답, FIN·RST가 오지 않는 끊김
 
 ## 열린 질문 / 막힌 점
