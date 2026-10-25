@@ -413,6 +413,10 @@ WebSocket은 연결과 frame 전달만 제공하므로, 채팅방 단위의 전�
 > - **문제 문장 1 (끊김, 확정)**: 내 초안 "FIN·RST 없이 사라지면 ③이 깨져 71초 지나도 세션이 남는다" → 조건(보낼 데이터 없음)과 확인 방법을 보태 확정:
   **FIN·RST 없이 클라이언트가 사라지고 그 세션에 보낼 데이터가 없으면 ③이 깨진다 → 결과: 71초 동안 `afterConnectionClosed`가 호출되지 않고, 세션은 매핑에, TCP는 `ESTABLISHED`로 남는다.**
 > - 남은 정의: 잘못된 입력(비멤버 `SEND`, 잘못된 JSON 등)의 문제 문장. 이것까지 쓴 뒤 "1. 정의"를 체크한다.
+> - 잘못된 입력: 핸들러 예외 처리 경로 확인(`javap`, [개념 노트 5절](../../learning/server-layers.md)) — Spring `ExceptionWebSocketHandlerDecorator`가 예외를 잡아 ERROR 로그 + `close(1011)`.
+> - 실험 4 예상 (내 표현): "B 입장에서는 연결이 끊기는 게 보일 거 같습니다. 문제가 되는 이유는 유저는 의도치 않게 연결을 끊게 만들었으니깐요."
+  - 결과 (2026-10-25, 실제 실행, 수동): D·B가 방 A에 `JOIN` → B가 `{"type":"SEND", "roomId":` 전송 → B 즉시 `닫힘 code=1011 reason=""`. 서버 `ERROR ExceptionWebSocketHandlerDecorator : Closing session due to exception`. 이어서 B의 정상 `SEND`는 `readyState=3`(닫힘)이라 예외 없이 버려짐. D는 자기 메시지만 받고 B가 나간 사실은 알 수 없음.
+  - 비교: 예상과 같음. 추가로 본 것: 클라이언트가 받는 이유는 코드 1011(서버 내부 오류)뿐이고 설명(reason)은 비어 있다.
 
 ### P1-6 최소 관측 메트릭
 - [ ] 1. 정의: 요구사항 정리, [문제 찾기 질문 6개](../../learning/problem-finding-questions.md)로 내가 문제 문장 작성

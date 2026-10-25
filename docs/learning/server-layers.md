@@ -125,7 +125,47 @@ OS │ 송신 버퍼 Send-Q 145,845 (가득)      │ ─✗─▶   │ C 수�
 - 다른 방은 다른 락이라 영향이 없다.
 - 쓰는 데이터가 있으면 Tomcat 쓰기 시간 초과가 결국 연결을 닫는다. 쓰는 데이터가 없으면(실험 1) 이 경로도 없다.
 
-## 5. 남은 질문
+## 5. ④ Spring: 핸들러에서 예외가 나면
+
+확인 방법: `spring-websocket-7.0.10.jar`의 `WebSocketHttpRequestHandler`·`ExceptionWebSocketHandlerDecorator`를 `javap -c`로 열어 봄 (2026-10-25). 실험 4에서 실행으로 확인: 깨진 JSON 한 번에 B가 `1011`, reason 빈 값으로 끊김, 이후 정상 `SEND`는 버려짐.
+
+### 우리 핸들러는 포장지 두 겹에 싸여 있다
+
+```
+ ④ Spring
+ ┌─────────────────────────────────────────────────────┐
+ │ ExceptionWebSocketHandlerDecorator   ← 예외를 잡는 겹       │
+ │ ┌─────────────────────────────────────────────────┐ │
+ │ │ LoggingWebSocketHandlerDecorator  ← 로그 남기는 겹     │ │
+ │ │ ┌─────────────────────────────────────────────┐ │ │
+ │ │ │ ⑤ ChatWebSocketHandler (우리 코드)             │ │ │
+ │ │ └─────────────────────────────────────────────┘ │ │
+ │ └─────────────────────────────────────────────────┘ │
+ └─────────────────────────────────────────────────────┘
+```
+
+실험 로그의 `LoggingWebSocketHandlerDecorator : New ...Session`은 가운데 겹이 남긴 것이다.
+
+### 예외가 나면 일어나는 일
+
+```
+⑤ handleTextMessage
+     └ parser.parse() → InvalidMessageException 💥  (우리 코드에서 안 잡음)
+            │ 위로 올라감
+④ ExceptionWebSocketHandlerDecorator.handleMessage
+     └ catch → tryCloseWithError()
+           ├ 1) ERROR 로그
+           └ 2) 세션이 열려 있으면 session.close(SERVER_ERROR)  ← 코드 1011
+            │
+③ Tomcat   Close 프레임(1011)을 클라이언트에 보내고 연결 종료
+            │
+④ → ⑤      afterConnectionClosed 호출 → 매핑 정리 (③ 지켜짐)
+```
+
+- 예외 하나 = 연결 끊김. 클라이언트는 이유 메시지 없이 닫힘 코드 1011(서버 내부 오류)만 받는다.
+- `afterConnectionEstablished`·`handleTransportError`의 예외도 같은 길로 처리된다.
+
+## 6. 남은 질문
 
 - 아래 계층의 "사라짐"을 위 계층이 알게 하려면 누가 무엇을 해야 하나? (P1-5 2. 고민)
 - 진짜 유령(ACK 없음)에서도 실험 3과 같은 흐름일까? (C 쪽 OS가 응답하지 않는 경우는 아직 못 만듦)
