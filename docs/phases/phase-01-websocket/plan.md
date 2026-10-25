@@ -377,7 +377,7 @@ WebSocket은 연결과 frame 전달만 제공하므로, 채팅방 단위의 전�
 - [x] 1. 정의: 요구사항 정리, [문제 찾기 질문 6개](../../learning/problem-finding-questions.md)로 내가 문제 문장 작성
 - [x] 2. 고민: 원인·해결책 직접 고민, 힌트, 대안 비교 → (필요 시) ADR
 - [x] 3. 설계: 최소 설계와 테스트 시나리오 확정
-- [ ] 4. 구현·검증: 실패하는 테스트 → 구현 → 통과, 예상 vs 실제 비교
+- [x] 4. 구현·검증: 실패하는 테스트 → 구현 → 통과, 예상 vs 실제 비교
 - [ ] 5. 정리: 결과 분석, 회고 기록
 
 > 메모: 형식이 잘못된 JSON, 존재하지 않는 방, 끊긴 세션 정리, heartbeat(ping/pong)를 다룬다.
@@ -499,6 +499,17 @@ WebSocket은 연결과 frame 전달만 제공하므로, 채팅방 단위의 전�
   - 4·5: `CONNECTED`만 받고 `open=true` (아무 응답 없음, 실험 5와 같음)
   - 2·6: 통과 — 2는 고친 뒤 살아 있는 연결을 끊지 않는지, 6은 예외 범위를 넓히지 않았는지 지키는 테스트
 > - 설계 확정: [ADR-0011](../../adr/0011-error-response-format.md) (오류 응답), [ADR-0005](../../adr/0005-websocket-ping-pong-heartbeat.md) 후속(heartbeat 값·판정).
+>
+> 구현·검증 진행 (2026-10-25, 실제 실행):
+> - 순서: 오류 응답(시나리오 3·4·5)과 heartbeat(시나리오 1·2)를 나눠 구현하고, 테스트가 하나씩 통과로 바뀌는 것을 확인.
+> - 오류 응답: `NotMemberError(requestType, roomId, message)`·`InvalidMessageError(message)` record를 `ServerMessage` 아래에 추가(`type`은 둘 다 `ERROR`, `code`는 record마다 고정). `handleTextMessage`가 `InvalidMessageException`만 잡아 `INVALID_MESSAGE`, `rooms.leave`·`broadcaster.broadcast`가 `false`면 `NOT_MEMBER`를 `SessionSender`로 보냄(락 밖).
+  - 결과: `InvalidInputWebSocketTest` 3개 실패 → 통과, `UnexpectedExceptionWebSocketTest`(1011 유지) 통과 유지.
+  - 실제로 나가는 JSON (임시 출력으로 확인 후 삭제): `{"type":"ERROR","requestType":"SEND","roomId":"X","message":"방 X의 멤버가 아니다. 먼저 JOIN해야 한다","code":"NOT_MEMBER"}`, `{"type":"ERROR","message":"잘못된 메시지: Unexpected end-of-input within/between Object entries","code":"INVALID_MESSAGE"}`. 같은 `type` 이름을 두 record에 붙여도 쓰기에는 문제없음.
+> - heartbeat: `Heartbeat`(`@Scheduled(fixedDelay=interval)`)가 `SessionRegistry.sessions()`를 돌며 대답을 기다리는 ping이 없으면 시각(`pingSentAt`)을 먼저 적고 `SessionSender`로 ping, 있으면 `timeout`이 지났을 때 `SessionSender.close(SESSION_NOT_RELIABLE)`. 핸들러 `handlePongMessage`가 `pongAt`을 적음. 시각은 세션 attributes, 값은 `application.yml`(30s/90s).
+  - 결과: `HeartbeatWebSocketTest` 유령 시나리오 실패 → 통과. 로그 `pong 없음 613ms → 닫음`(테스트 값 200ms/600ms) 뒤 `afterConnectionClosed`로 두 매핑에서 정리됨. pong하는 조용한 클라이언트는 3초 동안 한 번도 닫히지 않음.
+> - 전체 테스트: 62개, 3회 모두 통과.
+> - 예상 vs 실제: 구현 전 예상 6개 모두 일치(위). 구현 후 6개 모두 통과.
+> - 한계 (재현 못 함): 닫기도 세션 락 안에서 Close 프레임을 쓰므로, ACK 없는 진짜 유령이면 쓰기 시간 초과(약 20초)까지 스케줄러 스레드가 막혀 다른 세션 확인이 밀릴 수 있다. localhost로는 만들 수 없음 → P1-8과 함께.
 
 ### P1-6 최소 관측 메트릭
 - [ ] 1. 정의: 요구사항 정리, [문제 찾기 질문 6개](../../learning/problem-finding-questions.md)로 내가 문제 문장 작성
