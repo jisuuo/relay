@@ -1,6 +1,6 @@
 # ADR-0003. 일일 진행 관리 방식
 
-- 상태: Accepted
+- 상태: Accepted (결정 ② 과제별 5단계 체크리스트는 P1-6부터 [ADR-0012](0012-nine-step-task-process.md)로 대체)
 - 날짜: 2026-10-24
 - 관련 Phase: 전체
 
