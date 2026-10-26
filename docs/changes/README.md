@@ -6,3 +6,4 @@
 |---|---|---|---|
 | [001](001-move-baseline-perf-to-phase1.md) | 기준 성능 측정을 P1 종료 시점으로 이동 | 2026-10-24 | P1, P8 |
 | [002](002-early-minimal-observability.md) | 최소 관측 수단을 P0~P1부터 도입 | 2026-10-24 | P0, P1 |
+| [003](003-ai-delegation-master-prompt.md) | 마스터 프롬프트를 AI 구현 위임 기반 사고력 훈련으로 교체 | 2026-10-26 | P1-6 이후 |
